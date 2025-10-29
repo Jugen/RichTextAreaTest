@@ -195,7 +195,7 @@ public class RichTextModel extends StyledTextModel {
     private void dump(RParagraph p, PrintStream out) {
         out.println("  {paragraphAttrs=" + p.getParagraphAttributes() + ", segments=[");
         for(RSegment s: p) {
-            out.println("    {text=\"" + s.text() + "\", attr=" + s.getStyleAttributeMap() + "},");
+            out.println("    {text=\"" + s.text() + "\", attr=" + s.attrs() + "},");
         }
         out.println("  ]}");
     }
@@ -222,10 +222,6 @@ public class RichTextModel extends StyledTextModel {
 
         public void setAttrs(StyleAttributeMap a) {
             attrs = a;
-        }
-
-        public StyleAttributeMap getStyleAttributeMap() {
-            return attrs;
         }
 
         public int getTextLength() {
@@ -313,7 +309,7 @@ public class RichTextModel extends StyledTextModel {
                 RSegment seg = get(i);
                 int len = seg.getTextLength();
                 if (offset < (off + len) || (i == ct - 1)) {
-                    return seg.getStyleAttributeMap();
+                    return seg.attrs();
                 }
                 off += len;
             }
@@ -474,13 +470,13 @@ public class RichTextModel extends StyledTextModel {
             // preserve attributes using zero width segment
             if (size() == 0) {
                 if (next.size() > 0) {
-                    StyleAttributeMap a = next.get(0).getStyleAttributeMap();
+                    StyleAttributeMap a = next.get(0).attrs();
                     add(new RSegment("", a));
                 }
             }
             if (next.size() == 0) {
                 if (size() > 0) {
-                    StyleAttributeMap a = get(size() - 1).getStyleAttributeMap();
+                    StyleAttributeMap a = get(size() - 1).attrs();
                     next.add(new RSegment("", a));
                 }
             }
@@ -520,7 +516,7 @@ public class RichTextModel extends StyledTextModel {
             } else if(p.size() == 0) {
                 return false; // should never happen
             }
-            return get(size() - 1).getStyleAttributeMap().equals(p.get(0).getStyleAttributeMap());
+            return get(size() - 1).attrs().equals(p.get(0).attrs());
         }
 
         private boolean isZeroWidth() {
@@ -583,7 +579,7 @@ public class RichTextModel extends StyledTextModel {
                     remove(ix0);
                     if (size() == 0) {
                         // keep attributes in a zero width segment
-                        add(new RSegment("", seg.getStyleAttributeMap()));
+                        add(new RSegment("", seg.attrs()));
                     }
                 }
             } else {
@@ -611,7 +607,7 @@ public class RichTextModel extends StyledTextModel {
                 removeRange(ix0, ix1);
                 if (size() == 0) {
                     // keep attributes in a zero width segment
-                    add(new RSegment("", seg.getStyleAttributeMap()));
+                    add(new RSegment("", seg.attrs()));
                 }
             }
         }
