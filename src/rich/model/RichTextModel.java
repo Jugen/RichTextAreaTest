@@ -25,11 +25,15 @@
 
 package rich.model;
 
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import javafx.scene.Node;
 import javafx.scene.layout.Region;
 import jfx.incubator.scene.control.richtext.StyleResolver;
 import jfx.incubator.scene.control.richtext.TextPos;
@@ -85,12 +89,36 @@ public class RichTextModel extends StyledTextModel {
         return p.createRichParagraph();
     }
 
+    // TODO Remove and use getParagraph( index ).getSegments() if changed to public
+	public List<StyledSegment> getParagraphSegments( int index ) {
+		List<StyledSegment> segments = new ArrayList<>();
+		try {
+			exportParagraph( index, 0, getParagraphLength( index ), true, new StyledOutput() {
+				@Override public void consume( StyledSegment seg ) throws IOException { segments.add( seg ); }
+				@Override public void close() throws IOException {}
+				@Override public void flush() throws IOException {}
+			} );
+		}
+		catch ( IOException IO ) { IO.printStackTrace(); }
+		return segments;
+	}
+
     @Override
     protected int insertTextSegment(int index, int offset, String text, StyleAttributeMap attrs) {
         attrs = dedup(attrs);
         RParagraph par = paragraphs.get(index);
         par.insertText(offset, text, attrs);
         return text.length();
+    }
+
+    public int insertNodeSegment(int index, int offset, Supplier<Node> data, StyleAttributeMap attrs) {
+        attrs = dedup(attrs);
+        RParagraph par = paragraphs.get(index);
+        par.insertSegment(offset, data, attrs);
+        TextPos start = TextPos.ofLeading(index, offset);
+        TextPos end = TextPos.ofLeading(index, offset + 1);
+        fireChangeEvent( start, end, 0, 0, 0 );
+        return 1;
     }
 
     @Override
@@ -107,7 +135,7 @@ public class RichTextModel extends StyledTextModel {
     }
 
     @Override
-    protected void removeRange(TextPos start, TextPos end) {
+	public void removeRange(TextPos start, TextPos end) {
         int ix = start.index();
         RParagraph par = paragraphs.get(ix);
 
@@ -200,14 +228,22 @@ public class RichTextModel extends StyledTextModel {
         out.println("  ]}");
     }
 
+    private sealed interface RSegment permits RTextSegment, RNodeSegment {
+        StyleAttributeMap attrs();
+        void setAttrs(StyleAttributeMap a);
+        int getTextLength();
+        String text();
+        boolean removeRegion(int start, int end);
+    }
+
     /**
      * Represents a rich text segment having the same style attributes.
      */
-    private static class RSegment {
+    private static final class RTextSegment implements RSegment {
         private String text;
         private StyleAttributeMap attrs;
 
-        public RSegment(String text, StyleAttributeMap attrs) {
+        public RTextSegment(String text, StyleAttributeMap attrs) {
             this.text = text;
             this.attrs = attrs;
         }
@@ -262,6 +298,47 @@ public class RichTextModel extends StyledTextModel {
         }
     }
 
+    private static final class RNodeSegment implements RSegment {
+        private Supplier<Node> data;
+        private StyleAttributeMap attrs;
+
+        public RNodeSegment(Supplier<Node> data, StyleAttributeMap attrs) {
+            this.attrs = attrs;
+            this.data = data;
+        }
+
+        public Supplier<Node> getNodeSupplier() {
+            return data;
+        }
+
+        @Override
+        public StyleAttributeMap attrs() {
+            return attrs;
+        }
+
+        @Override
+        public void setAttrs(StyleAttributeMap a) {
+            attrs = a;
+        }
+
+        @Override
+        public int getTextLength() {
+            return 1;
+        }
+
+        @Override
+        public String text() {
+            return "ñ";
+        }
+
+        @Override
+        public boolean removeRegion( int start, int end )
+        {
+            return true;
+        }
+    }
+
+
     /**
      * Model paragraph is a list of RSegments.
      */
@@ -308,12 +385,56 @@ public class RichTextModel extends StyledTextModel {
             for (int i = 0; i < ct; i++) {
                 RSegment seg = get(i);
                 int len = seg.getTextLength();
-                if (offset < (off + len) || (i == ct - 1)) {
+                if (offset <= (off + len) || (i == ct - 1)) {
                     return seg.attrs();
                 }
                 off += len;
             }
             return StyleAttributeMap.EMPTY;
+        }
+
+        /**
+         * Inserts node at the specified offset.
+         * @param offset the insertion offset
+         * @param data the supplier object that will provide the node
+         * @param attrs the style attributes
+         */
+        public void insertSegment(int offset, Supplier<Node> data, StyleAttributeMap attrs){
+            int off = 0;
+            int ct = size();
+            RNodeSegment nodeSeg = new RNodeSegment(data, attrs);
+
+            for (int i = 0; i < ct; i++) {
+                if (offset == off) {
+                    // insert between two adjacent segments
+                    add(i, nodeSeg);
+                    return;
+                } else {
+                    RSegment seg = get(i);
+                    int len = seg.getTextLength();
+                    if ((offset > off) && (offset <= off + len)
+                        && (seg instanceof RTextSegment txtSeg)) {
+                        // split a segment and insert in between
+                        StyleAttributeMap a = txtSeg.attrs();
+                        String toSplit = txtSeg.text();
+                        int ix = offset - off;
+
+                        String s1 = toSplit.substring(0, ix);
+                        set(i++, new RTextSegment(s1, a));
+                        add(i++, nodeSeg);
+                        if (ix < toSplit.length()) {
+                            String s2 = toSplit.substring(ix);
+                            insertSegment2(i, s2, a);
+                        }
+                        return;
+                    }
+
+                    off += len;
+                }
+            }
+
+            // insert at the end
+            add(ct, nodeSeg);
         }
 
         /**
@@ -333,14 +454,15 @@ public class RichTextModel extends StyledTextModel {
                 } else {
                     RSegment seg = get(i);
                     int len = seg.getTextLength();
-                    if ((offset > off) && (offset <= off + len)) {
+                    if ((offset > off) && (offset <= off + len)
+                        && (seg instanceof RTextSegment)) {
                         // split segment
                         StyleAttributeMap a = seg.attrs();
                         String toSplit = seg.text();
                         int ix = offset - off;
 
                         String s1 = toSplit.substring(0, ix);
-                        set(i++, new RSegment(s1, a));
+                        set(i++, new RTextSegment(s1, a));
                         if (insertSegment2(i, text, attrs)) {
                             i++;
                         }
@@ -370,8 +492,7 @@ public class RichTextModel extends StyledTextModel {
         private boolean insertSegment2(int ix, String text, StyleAttributeMap a) {
             if (ix == 0) {
                 // FIX aaaa combine with insertSegment
-                if (ix < size()) {
-                    RSegment seg = get(ix);
+                if (ix < size() && get(ix) instanceof RTextSegment seg) {
                     if (seg.getTextLength() == 0) {
                         // replace zero width segment
                         seg.setText(text);
@@ -384,15 +505,14 @@ public class RichTextModel extends StyledTextModel {
                     }
                 }
             } else if (ix > 0) {
-                RSegment prev = get(ix - 1);
-                if (a.equals(prev.attrs())) {
+                if (get(ix - 1) instanceof RTextSegment prev && a.equals(prev.attrs())) {
                     // combine
                     prev.append(text);
                     return false;
                 }
             }
 
-            RSegment seg = new RSegment(text, a);
+            RSegment seg = new RTextSegment(text, a);
             if (ix < size()) {
                 add(ix, seg);
             } else {
@@ -412,14 +532,13 @@ public class RichTextModel extends StyledTextModel {
             // TODO deal with zero width segment
             // FIX aaaa combine with insertSegment2
             if (ix > 0) {
-                RSegment prev = get(ix - 1);
-                if (prev.attrs().equals(a)) {
+                if (get(ix - 1) instanceof RTextSegment prev && prev.attrs().equals(a)) {
                     // merge
                     prev.append(text);
                     return true;
                 }
             }
-            RSegment seg = new RSegment(text, a);
+            RSegment seg = new RTextSegment(text, a);
             if (ix >= size()) {
                 add(seg);
             } else {
@@ -451,9 +570,9 @@ public class RichTextModel extends StyledTextModel {
                         int ix = offset - off;
                         String s1 = toSplit.substring(0, ix);
                         String s2 = toSplit.substring(ix);
-                        set(i, new RSegment(s1, a));
+                        set(i, new RTextSegment(s1, a));
 
-                        next.add(new RSegment(s2, a));
+                        next.add(new RTextSegment(s2, a));
                         i++;
                     }
                     break;
@@ -471,13 +590,13 @@ public class RichTextModel extends StyledTextModel {
             if (size() == 0) {
                 if (next.size() > 0) {
                     StyleAttributeMap a = next.get(0).attrs();
-                    add(new RSegment("", a));
+                    add(new RTextSegment("", a));
                 }
             }
             if (next.size() == 0) {
                 if (size() > 0) {
                     StyleAttributeMap a = get(size() - 1).attrs();
-                    next.add(new RSegment("", a));
+                    next.add(new RTextSegment("", a));
                 }
             }
 
@@ -490,16 +609,12 @@ public class RichTextModel extends StyledTextModel {
          */
         public void append(RParagraph p) {
             if (isMerge(p)) {
+                RTextSegment last = (RTextSegment) get(size() - 1);
+                RTextSegment next = (RTextSegment) p.get(0);
+                last.append(next.text());
                 int sz = p.size();
-                for(int i=0; i<sz; i++) {
-                    RSegment seg = p.get(i);
-                    if(i == 0) {
-                        // merge
-                        RSegment last = get(size() - 1);
-                        last.append(seg.text());
-                    } else {
-                        add(seg);
-                    }
+                for(int i=1; i<sz; i++) {
+                    add(p.get(i));
                 }
                 return;
             } else if (isZeroWidth()) {
@@ -511,12 +626,14 @@ public class RichTextModel extends StyledTextModel {
         }
 
         private boolean isMerge(RParagraph p) {
-            if(size() == 0) {
-                return false; // should never happen
-            } else if(p.size() == 0) {
+            if(size() == 0 || p.size() == 0) {
                 return false; // should never happen
             }
-            return get(size() - 1).attrs().equals(p.get(0).attrs());
+            if (get(size() - 1) instanceof RTextSegment prev
+                    && p.get(0) instanceof RTextSegment next) {
+                return prev.attrs().equals(next.attrs());
+            }
+            return false;
         }
 
         private boolean isZeroWidth() {
@@ -579,7 +696,7 @@ public class RichTextModel extends StyledTextModel {
                     remove(ix0);
                     if (size() == 0) {
                         // keep attributes in a zero width segment
-                        add(new RSegment("", seg.attrs()));
+                        add(new RTextSegment("", seg.attrs()));
                     }
                 }
             } else {
@@ -607,7 +724,7 @@ public class RichTextModel extends StyledTextModel {
                 removeRange(ix0, ix1);
                 if (size() == 0) {
                     // keep attributes in a zero width segment
-                    add(new RSegment("", seg.attrs()));
+                    add(new RTextSegment("", seg.attrs()));
                 }
             }
         }
@@ -715,8 +832,7 @@ public class RichTextModel extends StyledTextModel {
         private boolean applyStyle(int ix, RSegment seg, StyleAttributeMap a, boolean merge, Function<StyleAttributeMap,StyleAttributeMap> dedup) {
             StyleAttributeMap newAttrs = dedup.apply(merge ? seg.attrs().combine(a) : a);
             if (ix > 0) {
-                RSegment prev = get(ix - 1);
-                if (prev.attrs().equals(newAttrs)) {
+                if (get(ix - 1) instanceof RTextSegment prev && prev.attrs().equals(newAttrs)) {
                     // merge
                     prev.append(seg.text());
                     remove(ix);
@@ -781,9 +897,10 @@ public class RichTextModel extends StyledTextModel {
         private RichParagraph createRichParagraph() {
             RichParagraph.Builder b = RichParagraph.builder();
             for (RSegment seg : this) {
-                String text = seg.text();
-                StyleAttributeMap a = seg.attrs();
-                b.addSegment(text, a);
+                switch (seg) {
+                    case RTextSegment txtSeg -> b.addSegment(txtSeg.text(), txtSeg.attrs());
+                    case RNodeSegment nodeSeg -> b.addInlineNode(nodeSeg.getNodeSupplier());
+                }
             }
             b.setParagraphAttributes(paragraphAttrs);
             return b.build();
