@@ -1,15 +1,17 @@
 # RichTextAreaTest
 Testing JavaFX incubator RichTextArea using two different models to accommodate custom nodes:
 
+(For both of these I separately extended RichTextArea for each to add the following common API to append, insert, replace, and getParagraphSegments, all for inline nodes but with differing signatures.)
+
 1. Extending **BasicTextModel** with the use of _AbstractSegments_ to handle the custom nodes.
    
    This is just a reworking of the method I was using with RichTextFX in my own application.  
-   See **CustomSegmentDemo** for a simple demonstration.
+   See src/basic/[CustomSegmentDemo](https://github.com/Jugen/RichTextAreaTest/blob/main/src/basic/CustomSegmentDemo.java) for a simple demonstration.
     
-2. Reworking JavaFX's own internal RichTextModel to handle custom nodes internally.
+2. Reworking JavaFX's own internal **RichTextModel** to handle custom nodes internally.
 
-   Also uses _AbstractSegments_ but mainly just as the _Supplier<Node>_.
-   See **CustomSupplierDemo** for a simple demonstration.
+   Also uses _AbstractSegments_ but mainly just as the _Supplier<Node>_.  
+   See src/rich/[CustomSupplierDemo](https://github.com/Jugen/RichTextAreaTest/blob/main/src/rich/CustomSupplierDemo.java) for a simple demonstration.
 
 ##
 ___Note___: that in neither of these two models have I properly handled styling of the custom Nodes through the RichTextArea API.
