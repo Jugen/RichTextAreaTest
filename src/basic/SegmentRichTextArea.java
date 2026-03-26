@@ -5,7 +5,6 @@ import java.util.List;
 
 import basic.model.SegmentBasicTextModel;
 import common.AbstractSegment;
-import javafx.application.Application;
 import jfx.incubator.scene.control.richtext.RichTextArea;
 import jfx.incubator.scene.control.richtext.TextPos;
 import jfx.incubator.scene.control.richtext.model.StyledTextModel;
@@ -37,8 +36,6 @@ import jfx.incubator.scene.control.richtext.model.StyledTextModel;
  */
 public class SegmentRichTextArea extends RichTextArea
 {
-	// TODO Remove this when CASPIAN style sheet has been updated for RichTextArea
-	private static String  userAgentStyleSheet = "";
 	private SegmentBasicTextModel  model;
 
     public SegmentRichTextArea()
@@ -72,21 +69,5 @@ public class SegmentRichTextArea extends RichTextArea
 	public List<AbstractSegment<?>> getParagraphSegments( int index )
 	{
 		return Collections.unmodifiableList( model.getParagraphSegments( index ) );
-	}
-
-	@Override public String getUserAgentStylesheet()
-	{
-		if ( userAgentStyleSheet != null && userAgentStyleSheet.isEmpty() )
-		{
-            String globalCSS = System.getProperty( "javafx.userAgentStylesheetUrl" ); // JavaFX preference!
-            if ( globalCSS == null ) globalCSS = Application.getUserAgentStylesheet();
-            if ( globalCSS == null ) globalCSS = Application.STYLESHEET_MODENA;
-
-            if ( globalCSS == Application.STYLESHEET_CASPIAN ) {
-            	userAgentStyleSheet = this.getClass().getResource( "RichTextAreaCaspian.css" ).toString();
-            }
-            else userAgentStyleSheet = super.getUserAgentStylesheet();
-		}
-		return userAgentStyleSheet;
 	}
 }

@@ -3,7 +3,6 @@ package rich;
 import java.util.List;
 import java.util.function.Supplier;
 
-import javafx.application.Application;
 import javafx.scene.Node;
 import jfx.incubator.scene.control.richtext.RichTextArea;
 import jfx.incubator.scene.control.richtext.TextPos;
@@ -13,8 +12,6 @@ import rich.model.RichTextModel;
 
 public class RichTextNodeArea extends RichTextArea
 {
-	// TODO Remove this when CASPIAN style sheet has been updated for RichTextArea
-	private static String  userAgentStyleSheet = "";
 	private RichTextModel  model;
 
 	public RichTextNodeArea()
@@ -52,21 +49,5 @@ public class RichTextNodeArea extends RichTextArea
 	public List<StyledSegment> getParagraphSegments( int index )
 	{
 		return model.getParagraphSegments( index );
-	}
-
-	@Override public String getUserAgentStylesheet()
-	{
-		if ( userAgentStyleSheet != null && userAgentStyleSheet.isEmpty() )
-		{
-            String globalCSS = System.getProperty( "javafx.userAgentStylesheetUrl" ); // JavaFX preference!
-            if ( globalCSS == null ) globalCSS = Application.getUserAgentStylesheet();
-            if ( globalCSS == null ) globalCSS = Application.STYLESHEET_MODENA;
-
-            if ( globalCSS == Application.STYLESHEET_CASPIAN ) {
-            	userAgentStyleSheet = this.getClass().getResource( "RichTextAreaCaspian.css" ).toString();
-            }
-            else userAgentStyleSheet = super.getUserAgentStylesheet();
-		}
-		return userAgentStyleSheet;
 	}
 }
