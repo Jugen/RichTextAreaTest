@@ -44,20 +44,13 @@ public class CustomSupplierDemo extends Application {
 
         textArea.moveDocumentEnd();
 
-        // FIXME requestLayout doesn't propagate upwards past TextCell to VFlow, so if for example
-        // a Label is selected and its text changes then the Label updates but the selection doesn't.
         textArea.setOnMouseClicked( ME ->
         {
         	if ( ME.getClickCount() != 2 ) return;
 
 			if ( ((Node) ME.getTarget()).getParent() instanceof Label label )
 			{
-				label.setText( "[Selection doesn't update !?]" );
-
-//				if ( textArea.lookup( ".vflow" ) instanceof Parent p )
-//				{
-//					p.requestLayout(); // manually request layout
-//				}
+				label.setText( "[Selection Updated]" );
 			}
         });
 

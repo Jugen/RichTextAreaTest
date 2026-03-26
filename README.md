@@ -22,4 +22,3 @@ There are currently a few problems in the JavaFX implementation that need to be 
 
 - Copy and paste of INLINE_NODEs doesn't work ?
 - Undo and Redo of INLINE_NODEs doesn't work ?
-- requestLayout doesn't propagate upwards past TextCell to VFlow, so if for example a Label is selected and its text changes then the Label updates but the selection doesn't ?
