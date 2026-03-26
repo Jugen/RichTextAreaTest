@@ -42,8 +42,6 @@ public class CustomSupplierDemo extends Application {
         primaryStage.setTitle("Custom Object demo");
         primaryStage.show();
 
-        // FIXME doesn't move caret to after LabelSegment if it's the last item.
-        // TextCell.getCaretShape:189 -> TextFlow.caretShape seems to return wrong position ???
         textArea.moveDocumentEnd();
 
         // FIXME requestLayout doesn't propagate upwards past TextCell to VFlow, so if for example
