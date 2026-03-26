@@ -25,11 +25,9 @@
 
 package rich.model;
 
-import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -88,20 +86,6 @@ public class RichTextModel extends StyledTextModel {
         RParagraph p = paragraphs.get(index);
         return p.createRichParagraph();
     }
-
-    // TODO Remove and use getParagraph( index ).getSegments() if changed to public
-	public List<StyledSegment> getParagraphSegments( int index ) {
-		List<StyledSegment> segments = new ArrayList<>();
-		try {
-			exportParagraph( index, 0, getParagraphLength( index ), true, new StyledOutput() {
-				@Override public void consume( StyledSegment seg ) throws IOException { segments.add( seg ); }
-				@Override public void close() throws IOException {}
-				@Override public void flush() throws IOException {}
-			} );
-		}
-		catch ( IOException IO ) { IO.printStackTrace(); }
-		return segments;
-	}
 
     @Override
     protected int insertTextSegment(int index, int offset, String text, StyleAttributeMap attrs) {

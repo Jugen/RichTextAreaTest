@@ -1,5 +1,6 @@
 package rich;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -45,9 +46,17 @@ public class RichTextNodeArea extends RichTextArea
         // FIXME add(ch, newEnd);												// is private -> protected void addUndo( ... ) ???
     }
 
-    // TODO Remove and use model.getParagraph( index ).getSegments() if changed to public
 	public List<StyledSegment> getParagraphSegments( int index )
 	{
-		return model.getParagraphSegments( index );
+		var p = model.getParagraph( index );
+		var segmentCount = p.getSegmentCount();
+		var segments = new ArrayList<StyledSegment>( segmentCount );
+
+		for ( var segNo = 0; segNo < segmentCount; segNo++ )
+		{
+			segments.add( p.getSegment( segNo ) );
+		}
+
+		return segments;
 	}
 }
