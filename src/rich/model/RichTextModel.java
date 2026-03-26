@@ -179,6 +179,14 @@ public class RichTextModel extends StyledTextModel {
         paragraphs.get(index).setParagraphAttributes(attrs);
     }
 
+	@Override
+	protected void applyParagraphStyle(int index, StyleAttributeMap attrs)
+	{
+		var p = paragraphs.get(index);
+		var current = p.getParagraphAttributes();
+		p.setParagraphAttributes(current.combine(attrs));
+	}
+
     @Override
     protected void applyStyle(int index, int start, int end, StyleAttributeMap attrs, boolean merge) {
         paragraphs.get(index).applyStyle(start, end, attrs, merge, this::dedup);
