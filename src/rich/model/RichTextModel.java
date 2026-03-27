@@ -83,8 +83,21 @@ public class RichTextModel extends StyledTextModel {
 
     @Override
     public RichParagraph getParagraph(int index) {
+        RichParagraph.Builder b = prepareParagraph(index);
+        return b.build();
+    }
+
+    /**
+     * Prepares the paragraph by populating a builder with the paragraph content.
+     * This method allows the custom model to add highlights and decorations
+     * without affecting the base class storage model.
+     * @param index the paragraph index
+     * @return the builder
+     * @since 26
+     */
+    protected RichParagraph.Builder prepareParagraph(int index) {
         RParagraph p = paragraphs.get(index);
-        return p.createRichParagraph();
+        return p.buildParagraph();
     }
 
     @Override
@@ -119,7 +132,7 @@ public class RichTextModel extends StyledTextModel {
     }
 
     @Override
-	public void removeRange(TextPos start, TextPos end) {
+    public void removeRange(TextPos start, TextPos end) {
         int ix = start.index();
         RParagraph par = paragraphs.get(ix);
 
@@ -159,16 +172,13 @@ public class RichTextModel extends StyledTextModel {
     }
 
     @Override
+	protected void applyParagraphStyle(int index, StyleAttributeMap attrs) {
+		paragraphs.get(index).applyParagraphAttributes(attrs);
+	}
+
+    @Override
     protected void setParagraphStyle(int index, StyleAttributeMap attrs) {
         paragraphs.get(index).setParagraphAttributes(attrs);
-    }
-
-	@Override
-	protected void applyParagraphStyle(int index, StyleAttributeMap attrs)
-	{
-		var p = paragraphs.get(index);
-		var current = p.getParagraphAttributes();
-		p.setParagraphAttributes(current.combine(attrs));
 	}
 
     @Override
@@ -346,6 +356,14 @@ public class RichTextModel extends StyledTextModel {
             return paragraphAttrs;
         }
 
+        public void applyParagraphAttributes(StyleAttributeMap a) {
+            if (paragraphAttrs == null) {
+                paragraphAttrs = a;
+            } else {
+                paragraphAttrs = paragraphAttrs.combine(a);
+            }
+        }
+
         public void setParagraphAttributes(StyleAttributeMap a) {
             paragraphAttrs = a;
         }
@@ -367,20 +385,21 @@ public class RichTextModel extends StyledTextModel {
         }
 
         /**
-         * Retrieves the style attributes from the previous character (or next, if at the beginning).
+         * Retrieves the style attributes at the specified offset.
          * @param offset the offset
          * @return the style info
          */
         public StyleAttributeMap getStyleAttributeMap(int offset) {
-            int off = 0;
+            int pos = 0;
             int ct = size();
+            int last = ct - 1;
             for (int i = 0; i < ct; i++) {
                 RSegment seg = get(i);
                 int len = seg.getTextLength();
-                if (offset <= (off + len) || (i == ct - 1)) {
-                    return seg.attrs();
+                pos += len;
+                if ((offset <= pos) || (i == last)) {
+               	    return seg.attrs();
                 }
-                off += len;
             }
             return StyleAttributeMap.EMPTY;
         }
@@ -886,7 +905,7 @@ public class RichTextModel extends StyledTextModel {
             }
         }
 
-        private RichParagraph createRichParagraph() {
+        private RichParagraph.Builder buildParagraph() {
             RichParagraph.Builder b = RichParagraph.builder();
             for (RSegment seg : this) {
                 switch (seg) {
@@ -895,7 +914,7 @@ public class RichTextModel extends StyledTextModel {
                 }
             }
             b.setParagraphAttributes(paragraphAttrs);
-            return b.build();
+            return b;
         }
     }
 }
